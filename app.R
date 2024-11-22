@@ -17,12 +17,12 @@ weather_data$Date <- as.Date(weather_data$Date)
 ui <- fluidPage(
   tags$head(
     tags$style(HTML("
-      body {font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333;}
-      .title {text-align: center; padding: 20px; color: #4a4a4a;}
-      .sidebar {background-color: #e9ecef; padding: 15px; border-radius: 5px;}
-      .main-panel {background-color: #ffffff; padding: 15px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
-      .plot {margin-top: 20px;}
-    "))
+  body {font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333;}
+  .title {text-align: center; padding: 20px; color: #4a4a4a;}
+  .sidebar {background-color: #e9ecef; padding: 15px; border-radius: 5px;}
+  .main-panel {background-color: #ffffff; padding: 15px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+  .plot {margin-top: 20px;}
+"))
   ),
   
   titlePanel("Porto Alegre Weather Data"),
@@ -38,7 +38,7 @@ ui <- fluidPage(
                                 start = min(weather_data$Date),
                                 end = max(weather_data$Date)),
                  selectInput("plotType", "Select Plot Type:", 
-                             choices = c("Line Plot", "Histogram", "Box Plot", "Scatter Plot"))
+                             choices = c("Line Plot", "Histogram", "Box Plot"))
                ),
                
                mainPanel(
@@ -72,6 +72,24 @@ ui <- fluidPage(
                  plotOutput("tsPlot"),
                  verbatimTextOutput("modelSummary"),
                  verbatimTextOutput("forecastStats")
+               )
+             )
+    ),
+    
+    tabPanel("Diagnostics",
+             sidebarLayout(
+               sidebarPanel(
+                 class = "sidebar",
+                 h4("Diagnostics for the Selected Model")
+               ),
+               
+               mainPanel(
+                 class = "main-panel",
+                 plotOutput("residualsPlot"),
+                 plotOutput("qqPlot"),
+                 plotOutput("acf_res"),
+                 plotOutput("hist_res"),
+                 verbatimTextOutput("residualsSummary")
                )
              )
     )
@@ -108,11 +126,6 @@ server <- function(input, output) {
         geom_boxplot(fill = "#ff7f0e") +
         labs(title = paste("Box Plot of", variable),
              y = variable)
-    } else if (input$plotType == "Scatter Plot") {
-      ggplot(data, aes_string(x = "Date", y = variable)) +
-        geom_point(color = "#2ca02c") +
-        labs(title = paste("Scatter Plot of", variable),
-             x = "Date", y = variable)
     }
   })
   
@@ -146,8 +159,12 @@ server <- function(input, output) {
                  seasonal = c(input$P, input$D, input$Q))
     forecast_data <- forecast(fit, h = input$forecastPeriod)
     
-    # Plot observed data
-    plot(ts_data, main = paste("SARIMA Forecast for", input$tsVariable), xlab = "Time", ylab = input$tsVariable, col = "blue")
+    # Determine the range for the last 24 observations
+    last_obs <- tail(ts_data, 24)
+    plot_range <- c(time(last_obs), time(last_obs)[length(last_obs)] + input$forecastPeriod)
+    
+    # Plot the last 24 observations
+    plot(last_obs, main = paste("SARIMA Forecast for", input$tsVariable), xlab = "Time", ylab = input$tsVariable, col = "blue", xlim = plot_range)
     # Add forecast data
     lines(forecast_data$mean, col = "red")
     # Add confidence intervals
@@ -180,6 +197,51 @@ server <- function(input, output) {
     cat("Forecast Statistics:\n")
     cat("Mean Squared Error (MSE):", mse, "\n")
     cat("Mean Absolute Error (MAE):", mae, "\n")
+  })
+  
+  # Diagnostics: Residuals plot
+  output$residualsPlot <- renderPlot({
+    ts_data <- ts(weather_data[[input$tsVariable]], frequency = input$S, start = c(1990, 1))
+    fit <- Arima(ts_data, order = c(input$p, input$d, input$q), 
+                 seasonal = c(input$P, input$D, input$Q))
+    residuals <- residuals(fit)
+    plot(residuals, main = "Residuals of the Model", ylab = "Residuals", xlab = "Time")
+    abline(h = 0, col = "red", lty = 2)
+  })
+  
+  # Diagnostics: Q-Q plot
+  output$qqPlot <- renderPlot({
+    ts_data <- ts(weather_data[[input$tsVariable]], frequency = input$S, start = c(1990, 1))
+    fit <- Arima(ts_data, order = c(input$p, input$d, input$q), 
+                 seasonal = c(input$P, input$D, input$Q))
+    residuals <- residuals(fit)
+    qqnorm(residuals)
+    qqline(residuals, col = "red")
+  })
+  
+  output$hist_res <- renderPlot({
+    ts_data <- ts(weather_data[[input$tsVariable]], frequency = input$S, start = c(1990, 1))
+    fit <- Arima(ts_data, order = c(input$p, input$d, input$q), 
+                 seasonal = c(input$P, input$D, input$Q))
+    residuals <- residuals(fit)
+    hist(residuals)
+  })
+  
+  output$acf_res <- renderPlot({
+    ts_data <- ts(weather_data[[input$tsVariable]], frequency = input$S, start = c(1990, 1))
+    fit <- Arima(ts_data, order = c(input$p, input$d, input$q), 
+                 seasonal = c(input$P, input$D, input$Q))
+    residuals <- residuals(fit)
+    acf(residuals)
+  })
+  
+  # Diagnostics: Residuals summary
+  output$residualsSummary <- renderPrint({
+    ts_data <- ts(weather_data[[input$tsVariable]], frequency = input$S, start = c(1990, 1))
+    fit <- Arima(ts_data, order = c(input$p, input$d, input$q), 
+                 seasonal = c(input$P, input$D, input$Q))
+    residuals <- residuals(fit)
+    summary(residuals)
   })
 }
 
