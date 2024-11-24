@@ -1,12 +1,10 @@
 library(shiny)
 library(ggplot2)
 library(dplyr)
-library(forecast)
+library(plotly)
 library(readxl)
 library(DT)
-library(openxlsx)
 library(yaml)
-library(plotly)
 
 source("function_aux.R")
 
@@ -14,58 +12,49 @@ config <- yaml::read_yaml("config.yaml")
 
 ui <- fluidPage(
   tags$head(tags$style(HTML("
-  body {
-  font-family: 'Arial', sans-serif;
-  background-color: #a7dfe9;
-  color: #333;
-  margin: 0;
-  padding: 0;
-  border-radius: 20px;
-  }
-  .title {
-  text-align: center;
-  padding: 13px;
-  color: #2c3e50;
-  background-color: #ecf0f1;
-  border-bottom: solid #bdc3c7;
-  border-radius: 20px;
-  margin: 5px 7px 5px 7px;
-  }
-  .sidebar {
-  background-color: #ecf0f1;
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
-  margin: 5px 5px 5px 5px;
-  }
-  .main-panel {
-  background-color: #ffffff;
-  padding: 20px;
-  border-radius: 5px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  margin: 5px 5px 5px 5px;
-  }
-  
-  .main-panel2 {
-  background-color: #ffffff;
-  padding: 20px;
-  border-radius: 5px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  margin: 0px;
-  }
-  
-  .plot {
-  margin-top: 20px;
-  }
-  .btn {
-  margin-top: 10px;
-  }
-  .shiny-input-container {
-  margin-bottom: 15px;
-  }
-  .tab-content {
-  margin-top: 20px;
-  }
+body {
+font-family: 'Arial', sans-serif;
+background-color: #a7dfe9;
+color: #333;
+margin: 0;
+padding: 0;
+border-radius: 20px;
+}
+.title {
+text-align: center;
+padding: 13px;
+color: #2c3e50;
+background-color: #ecf0f1;
+border-bottom: solid #bdc3c7;
+border-radius: 20px;
+margin: 5px 7px 5px 7px;
+}
+.sidebar {
+background-color: #ecf0f1;
+padding: 10px;
+border-radius: 5px;
+box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+margin: 5px 5px 5px 5px;
+}
+.main-panel {
+background-color: #ffffff;
+padding: 20px;
+border-radius: 5px;
+box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+margin: 5px 5px 5px 5px;
+}
+.plot {
+margin-top: 20px;
+}
+.btn {
+margin-top: 10px;
+}
+.shiny-input-container {
+margin-bottom: 15px;
+}
+.tab-content {
+margin-top: 20px;
+}
 "))),
   
   tags$div(
@@ -140,7 +129,6 @@ ui <- fluidPage(
   )
 )
 
-
 server <- function(input, output, session) {
   
   dataset <- reactiveVal(NULL)
@@ -184,6 +172,11 @@ server <- function(input, output, session) {
     
     variable_data <- data[[input$variable]]
     
+    # Verifique se a variável é numérica
+    validate(
+      need(is.numeric(variable_data), "A variável selecionada não é numérica. Por favor, selecione uma variável numérica.")
+    )
+    
     if (input$applyLog) {
       variable_data <- log(variable_data)
     }
@@ -223,37 +216,6 @@ server <- function(input, output, session) {
     }
     
     ggplotly(p)
-  })
-  
-  output$summaryTable <- renderDT({
-    req(input$variable)
-    
-    summary_data <- summary(transformed_data()[[input$variable]])
-    
-    summary_df <- data.frame(
-      Statistic = names(summary_data),
-      Value = as.vector(summary_data)
-    )
-    
-    transposed_df <- as.data.frame(t(summary_df))
-    
-    colnames(transposed_df) <- transposed_df[1, ]
-    transposed_df <- transposed_df[-1, , drop = FALSE]
-    
-    datatable(
-      transposed_df,
-      extensions = 'Buttons',
-      options = list(
-        dom = 'B',
-        buttons = c('csv', 'excel'),
-        paging = FALSE,  
-        info = FALSE,    
-        autoWidth = TRUE,
-        ordering = FALSE,
-        scrollX = TRUE,
-        searchHighlight = TRUE
-      )
-    )
   })
   
   output$acfPlot <- renderPlotly({
@@ -296,6 +258,37 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
+  output$summaryTable <- renderDT({
+    req(input$variable)
+    
+    summary_data <- summary(transformed_data()[[input$variable]])
+    
+    summary_df <- data.frame(
+      Statistic = names(summary_data),
+      Value = as.vector(summary_data)
+    )
+    
+    transposed_df <- as.data.frame(t(summary_df))
+    
+    colnames(transposed_df) <- transposed_df[1, ]
+    transposed_df <- transposed_df[-1, , drop = FALSE]
+    
+    datatable(
+      transposed_df,
+      extensions = 'Buttons',
+      options = list(
+        dom = 'B',
+        buttons = c('csv', 'excel'),
+        paging = FALSE,  
+        info = FALSE,    
+        autoWidth = TRUE,
+        ordering = FALSE,
+        scrollX = TRUE,
+        searchHighlight = TRUE
+      )
+    )
+  })
+  
   output$dadosTable <- renderDT({
     datatable(
       dataset(),
@@ -317,6 +310,11 @@ server <- function(input, output, session) {
   }, {
     req(input$tsVariable)
     ts_data <- dataset()[[input$tsVariable]]
+    
+    # Verifique se a variável é numérica
+    validate(
+      need(is.numeric(ts_data), "A variável selecionada para o modelo não é numérica. Por favor, selecione uma variável numérica.")
+    )
     
     if (input$applyLogModel) {
       ts_data <- log(ts_data)
@@ -365,37 +363,37 @@ server <- function(input, output, session) {
   })
   
   output$observedVsPredictedPlot <- renderPlotly({
-  req(fitted_model())
-  ts_data <- dataset()[[input$tsVariable]]
-  
-  if (input$applyLogModel) {
-    ts_data <- log(ts_data)
-  }
-  
-  ts_data <- ts(ts_data, frequency = input$S, start = c(1990, 1))
-  fit <- fitted_model()
-  
-  actuals <- window(ts_data, start = start(ts_data), end = end(ts_data))
-  predictions <- fitted(fit)
-  
-  min_length <- min(length(actuals), length(predictions))
-  actuals <- actuals[1:min_length]
-  predictions <- predictions[1:min_length]
-  
-  plot_data <- data.frame(
-    Time = as.numeric(time(actuals)),
-    Observed = as.numeric(actuals),
-    Predicted = as.numeric(predictions)
-  )
-  
-  p <- ggplot(plot_data, aes(x = Time)) +
-    geom_line(aes(y = Observed, color = "Observado"), size = 1) +
-    geom_line(aes(y = Predicted, color = "Predito"), linetype = "dashed", size = 1) +
-    labs(title = "Valores Observados vs Preditos", x = "Time", y = "Values") +
-    scale_color_manual(values = c("Observado" = "blue", "Predito" = "red")) +
-    theme_minimal()
-  
-  ggplotly(p)
+    req(fitted_model())
+    ts_data <- dataset()[[input$tsVariable]]
+    
+    if (input$applyLogModel) {
+      ts_data <- log(ts_data)
+    }
+    
+    ts_data <- ts(ts_data, frequency = input$S, start = c(1990, 1))
+    fit <- fitted_model()
+    
+    actuals <- window(ts_data, start = start(ts_data), end = end(ts_data))
+    predictions <- fitted(fit)
+    
+    min_length <- min(length(actuals), length(predictions))
+    actuals <- actuals[1:min_length]
+    predictions <- predictions[1:min_length]
+    
+    plot_data <- data.frame(
+      Time = as.numeric(time(actuals)),
+      Observed = as.numeric(actuals),
+      Predicted = as.numeric(predictions)
+    )
+    
+    p <- ggplot(plot_data, aes(x = Time)) +
+      geom_line(aes(y = Observed, color = "Observado"), size = 1) +
+      geom_line(aes(y = Predicted, color = "Predito"), linetype = "dashed", size = 1) +
+      labs(title = "Valores Observados vs Preditos", x = "Time", y = "Values") +
+      scale_color_manual(values = c("Observado" = "blue", "Predito" = "red")) +
+      theme_minimal()
+    
+    ggplotly(p)
   })
   
   # Calcular estatistica de previsao
