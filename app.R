@@ -12,7 +12,6 @@ source("function_aux.R")
 
 config <- yaml::read_yaml("config.yaml")
 
-# Define UI for application
 ui <- fluidPage(
   tags$head(tags$style(HTML("
   body {
@@ -78,7 +77,7 @@ ui <- fluidPage(
     tabPanel(title = "Visualização dos Dados",
              fluidRow(class = "sidebar",
                       column(width = 4,
-                             selectInput("variable", "Selecione uma Variável:", choices = NULL),
+                             selectInput("variable", "Selecione uma Variável:", choices = c("")),
                              checkboxInput("applyLog", "Aplicar Logaritmo", value = FALSE),
                              fileInput("fileUpload", "Upload um Arquivo", accept = c(".csv", ".xlsx"))
                       ),
@@ -109,7 +108,7 @@ ui <- fluidPage(
     tabPanel(title = "Ajuste do Modelo",
              fluidRow(class = "sidebar",
                       column(width = 3,
-                             selectInput("tsVariable", "Selecione uma variável:", choices = NULL),
+                             selectInput("tsVariable", "Selecione uma variável:", choices = c("")),
                              checkboxInput("applyLogModel", "Aplicar Logaritmo", value = FALSE),
                              numericInput("forecastPeriod", "Período de Previsão:", 12, min = 1),
                              numericInput("p", "AR Order (p):", 1, min = 0),
@@ -144,10 +143,9 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  # Reactive value to store the dataset
   dataset <- reactiveVal(NULL)
   
-  # Load initial dataset
+  # Carrega dataset inicial
   observe({
     initial_data <- load_initial_data("PortoAlegre.xlsx")
     dataset(initial_data)
@@ -156,12 +154,11 @@ server <- function(input, output, session) {
     updateSelectInput(session, "tsVariable", choices = colnames(initial_data)[-1])
   })
   
-  # Handle file upload
   observeEvent(input$fileUpload, {
     inFile <- input$fileUpload
     if (is.null(inFile)) return(NULL)
     
-    # Determine file type and read accordingly
+    # Determina tipo do arquivo upload
     if (grepl("\\.csv$", inFile$name)) {
       uploaded_data <- read.csv(inFile$datapath)
     } else if (grepl("\\.xlsx$", inFile$name)) {
@@ -170,16 +167,17 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    # Assume the first column is the date
-    uploaded_data[[1]] <- as.Date(uploaded_data[[1]])
+    # Verifique o formato da data e ajuste conforme necessário
+    # Supondo que o formato seja "DD/MM/YYYY"
+    uploaded_data[[1]] <- as.Date(uploaded_data[[1]], format = "%d/%m/%Y")
+    
     dataset(uploaded_data)
     
-    # Update UI elements based on the new dataset
-    updateSelectInput(session, "variable", choices = colnames(uploaded_data)[-1])
-    updateSelectInput(session, "tsVariable", choices = colnames(uploaded_data)[-1])
+    # Limpar seleções antes de adicionar novas opções
+    updateSelectInput(session, "variable", choices = c("", colnames(uploaded_data)[-1]))
+    updateSelectInput(session, "tsVariable", choices = c("", colnames(uploaded_data)[-1]))
   })
   
-  # Reactive expression to transform data based on user input
   transformed_data <- reactive({
     req(dataset(), input$variable)
     data <- dataset()
@@ -198,7 +196,6 @@ server <- function(input, output, session) {
     data
   })
   
-  # Generate plot based on transformed data and selected plot type
   output$weatherPlot <- renderPlotly({
     validate(
       need(input$variable != "", "Por favor, selecione uma variável"),
@@ -259,7 +256,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # ACF plot with Bartlett limits
   output$acfPlot <- renderPlotly({
     data <- transformed_data()
     variable <- input$variable
@@ -280,7 +276,6 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
-  # PACF plot with Bartlett limits
   output$pacfPlot <- renderPlotly({
     data <- transformed_data()
     variable <- input$variable
@@ -315,10 +310,8 @@ server <- function(input, output, session) {
     )
   })
   
-  # Reactive expression to store the fitted model
   fitted_model <- reactiveVal(NULL)
   
-  # Observe changes in model parameters and fit the model
   observeEvent({
     list(input$tsVariable, input$applyLogModel, input$p, input$d, input$q, input$P, input$D, input$Q, input$S)
   }, {
@@ -334,12 +327,11 @@ server <- function(input, output, session) {
     fitted_model(fit)
   })
   
-  # Time series modeling with SARIMA
+  # MODELANDO SARIMA
   output$tsPlot <- renderPlotly({
     req(fitted_model())
     forecast_data <- forecast(fitted_model(), h = input$forecastPeriod)
     
-    # Create a data frame for plotting
     plot_data <- data.frame(
       Time = as.numeric(time(forecast_data$mean)),
       Forecast = as.numeric(forecast_data$mean),
@@ -347,7 +339,6 @@ server <- function(input, output, session) {
       Upper = as.numeric(forecast_data$upper[, 2])
     )
     
-    # Add the original data to the plot
     original_data <- dataset()[[input$tsVariable]]
     if (input$applyLogModel) {
       original_data <- log(original_data)
@@ -358,12 +349,11 @@ server <- function(input, output, session) {
       Value = as.numeric(original_data)
     )
     
-    # Plot with plotly
     p <- ggplot() +
       geom_line(data = original_plot_data, aes(x = Time, y = Value), color = "blue", size = 1, alpha = 0.7) +
       geom_line(data = plot_data, aes(x = Time, y = Forecast), color = "red", size = 1) +
       geom_ribbon(data = plot_data, aes(x = Time, ymin = Lower, ymax = Upper), fill = "grey80", alpha = 0.5) +
-      labs(title = paste("Previsão para", input$tsVariable), x = "Time", y = "Values") +
+      labs(title = paste("Previsão para", input$tsVariable), x = "Time", y = input$tsVariable) +
       theme_minimal()
     
     ggplotly(p)
@@ -375,48 +365,44 @@ server <- function(input, output, session) {
   })
   
   output$observedVsPredictedPlot <- renderPlotly({
-    req(fitted_model())
-    ts_data <- dataset()[[input$tsVariable]]
-    
-    if (input$applyLogModel) {
-      ts_data <- log(ts_data)
-    }
-    
-    ts_data <- ts(ts_data, frequency = input$S, start = c(1990, 1))
-    fit <- fitted_model()
-    
-    actuals <- window(ts_data, start = start(ts_data), end = end(ts_data))
-    predictions <- fitted(fit)
-    
-    # Ensure actuals and predictions are of the same length
-    min_length <- min(length(actuals), length(predictions))
-    actuals <- actuals[1:min_length]
-    predictions <- predictions[1:min_length]
-    
-    # Create a data frame for plotting
-    plot_data <- data.frame(
-      Time = as.numeric(time(actuals)),
-      Observed = as.numeric(actuals),
-      Predicted = as.numeric(predictions)
-    )
-    
-    # Plot observed vs predicted
-    p <- ggplot(plot_data, aes(x = Time)) +
-      geom_line(aes(y = Observed, color = "Observado"), size = 1) +
-      geom_line(aes(y = Predicted, color = "Predito"), linetype = "dashed", size = 1) +
-      labs(title = "Valores Observados vs Preditos", x = "Time", y = "Values") +
-      scale_color_manual(values = c("Observado" = "blue", "Predito" = "red")) +
-      theme_minimal()
-    
-    ggplotly(p)
+  req(fitted_model())
+  ts_data <- dataset()[[input$tsVariable]]
+  
+  if (input$applyLogModel) {
+    ts_data <- log(ts_data)
+  }
+  
+  ts_data <- ts(ts_data, frequency = input$S, start = c(1990, 1))
+  fit <- fitted_model()
+  
+  actuals <- window(ts_data, start = start(ts_data), end = end(ts_data))
+  predictions <- fitted(fit)
+  
+  min_length <- min(length(actuals), length(predictions))
+  actuals <- actuals[1:min_length]
+  predictions <- predictions[1:min_length]
+  
+  plot_data <- data.frame(
+    Time = as.numeric(time(actuals)),
+    Observed = as.numeric(actuals),
+    Predicted = as.numeric(predictions)
+  )
+  
+  p <- ggplot(plot_data, aes(x = Time)) +
+    geom_line(aes(y = Observed, color = "Observado"), size = 1) +
+    geom_line(aes(y = Predicted, color = "Predito"), linetype = "dashed", size = 1) +
+    labs(title = "Valores Observados vs Preditos", x = "Time", y = "Values") +
+    scale_color_manual(values = c("Observado" = "blue", "Predito" = "red")) +
+    theme_minimal()
+  
+  ggplotly(p)
   })
   
-  # Calculate forecast statistics
+  # Calcular estatistica de previsao
   output$forecastStats <- renderPrint({
     req(fitted_model())
     ts_data <- dataset()[[input$tsVariable]]
     
-    # Apply logarithm if selected in the model adjustment tab
     if (input$applyLogModel) {
       ts_data <- log(ts_data)
     }
@@ -424,7 +410,6 @@ server <- function(input, output, session) {
     ts_data <- ts(ts_data, frequency = input$S)
     forecast_data <- forecast(fitted_model(), h = input$forecastPeriod)
     
-    # Calculate MSE and MAE
     actuals <- window(ts_data, start = end(ts_data) - input$forecastPeriod + 1)
     predictions <- forecast_data$mean[1:length(actuals)]
     
@@ -432,67 +417,54 @@ server <- function(input, output, session) {
     mae <- mean(abs(actuals - predictions), na.rm = TRUE)
     
     cat("Estatísticas de Previsão:\n")
-    cat("Mean Squared Error (MSE):", mse, "\n")
-    cat("Mean Absolute Error (MAE):", mae, "\n")
+    cat("Erro Quadrático Médio (EQM):", mse, "\n")
+    cat("Erro Absoluto Médio (EAM):", mae, "\n")
   })
   
+  # Gráficos no Tab Diagnóstico
   output$residualsPlot <- renderPlotly({
     req(fitted_model())
     residuals <- residuals(fitted_model())
-    
-    residuals_df <- data.frame(Time = as.numeric(time(residuals)), Residuals = as.numeric(residuals))
-    
+    residuals_df <- data.frame(Time = seq_along(residuals), Residuals = residuals)
     p <- ggplot(residuals_df, aes(x = Time, y = Residuals)) +
       geom_line(color = "blue") +
-      labs(title = "Line Plot dos Resíduos", x = "Time", y = "Resíduos") +
+      labs(title = "Resíduos ao longo do tempo", x = "Tempo", y = "Resíduos") +
       theme_minimal()
-    
     ggplotly(p)
   })
   
   output$qqPlot <- renderPlotly({
     req(fitted_model())
     residuals <- residuals(fitted_model())
-    
     qq_data <- qqnorm(residuals, plot.it = FALSE)
-    qq_df <- data.frame(x = qq_data$x, y = qq_data$y)
-    
-    p <- ggplot(qq_df, aes(x = x, y = y)) +
+    qq_df <- data.frame(Theoretical = qq_data$x, Sample = qq_data$y)
+    p <- ggplot(qq_df, aes(x = Theoretical, y = Sample)) +
       geom_point() +
-      geom_abline(slope = 1, intercept = 0, color = "red") +
-      labs(title = "Q-Q Plot dos Resíduos", x = "Theoretical Quantiles", y = "Sample Quantiles") +
+      geom_abline(intercept = 0, slope = 1, color = "red") +
+      labs(title = "Q-Q Plot dos Resíduos", x = "Quantis Teóricos", y = "Quantis Amostrais") +
       theme_minimal()
-    
-    ggplotly(p)
-  })
-  
-  output$hist_res <- renderPlotly({
-    req(fitted_model())
-    residuals <- residuals(fitted_model())
-    
-    p <- ggplot(data.frame(Residuals = residuals), aes(x = Residuals)) +
-      geom_histogram(binwidth = 0.5, fill = "blue", color = "black") +
-      labs(title = "Histograma dos Resíduos", x = "Resíduos", y = "Frequência") +
-      theme_minimal()
-    
     ggplotly(p)
   })
   
   output$acf_res <- renderPlotly({
     req(fitted_model())
     residuals <- residuals(fitted_model())
-    
     acf_data <- acf(residuals, plot = FALSE)
-    bartlett_limit <- 1.96 / sqrt(length(residuals))
-    
-    acf_df <- data.frame(lag = acf_data$lag, acf = acf_data$acf)
-    
-    p <- ggplot(acf_df, aes(x = lag, y = acf)) +
-      geom_bar(stat = "identity", fill = "#007bff") +
-      geom_hline(yintercept = c(-bartlett_limit, bartlett_limit), linetype = "dashed", color = "red") +
-      labs(title = "FAC dos Resíduos", x = "Lag", y = "ACF") +
+    acf_df <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf)
+    p <- ggplot(acf_df, aes(x = Lag, y = ACF)) +
+      geom_bar(stat = "identity", fill = "blue") +
+      labs(title = "Autocorrelação dos Resíduos", x = "Lag", y = "ACF") +
       theme_minimal()
-    
+    ggplotly(p)
+  })
+  
+  output$hist_res <- renderPlotly({
+    req(fitted_model())
+    residuals <- residuals(fitted_model())
+    p <- ggplot(data.frame(Residuals = residuals), aes(x = Residuals)) +
+      geom_histogram(fill = "blue", color = "black", bins = 30) +
+      labs(title = "Histograma dos Resíduos", x = "Resíduos", y = "Frequência") +
+      theme_minimal()
     ggplotly(p)
   })
   
