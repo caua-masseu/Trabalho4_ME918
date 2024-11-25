@@ -12,49 +12,49 @@ config <- yaml::read_yaml("config.yaml")
 
 ui <- fluidPage(
   tags$head(tags$style(HTML("
-  body {
-  font-family: 'Arial', sans-serif;
-  background-color: #a7dfe9;
-  color: #333;
-  margin: 0;
-  padding: 0;
-  border-radius: 20px;
-  }
-  .title {
-  text-align: center;
-  padding: 13px;
-  color: #2c3e50;
-  background-color: #ecf0f1;
-  border-bottom: solid #bdc3c7;
-  border-radius: 20px;
-  margin: 5px 7px 5px 7px;
-  }
-  .sidebar {
-  background-color: #ecf0f1;
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
-  margin: 5px 5px 5px 5px;
-  }
-  .main-panel {
-  background-color: #ffffff;
-  padding: 20px;
-  border-radius: 5px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  margin: 5px 5px 5px 5px;
-  }
-  .plot {
-  margin-top: 20px;
-  }
-  .btn {
-  margin-top: 10px;
-  }
-  .shiny-input-container {
-  margin-bottom: 15px;
-  }
-  .tab-content {
-  margin-top: 20px;
-  }
+body {
+font-family: 'Arial', sans-serif;
+background-color: #a7dfe9;
+color: #333;
+margin: 0;
+padding: 0;
+border-radius: 20px;
+}
+.title {
+text-align: center;
+padding: 13px;
+color: #2c3e50;
+background-color: #ecf0f1;
+border-bottom: solid #bdc3c7;
+border-radius: 20px;
+margin: 5px 7px 5px 7px;
+}
+.sidebar {
+background-color: #ecf0f1;
+padding: 10px;
+border-radius: 5px;
+box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+margin: 5px 5px 5px 5px;
+}
+.main-panel {
+background-color: #ffffff;
+padding: 20px;
+border-radius: 5px;
+box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+margin: 5px 5px 5px 5px;
+}
+.plot {
+margin-top: 20px;
+}
+.btn {
+margin-top: 10px;
+}
+.shiny-input-container {
+margin-bottom: 15px;
+}
+.tab-content {
+margin-top: 20px;
+}
 "))),
   
   tags$div(
@@ -97,7 +97,7 @@ ui <- fluidPage(
     tabPanel(title = "Ajuste do Modelo",
              fluidRow(class = "sidebar",
                       column(width = 3,
-                             selectInput("tsVariable", "Selecione uma variável:", choices = c("")),
+                             selectInput("tsVariable", "Selecione uma Variável Numérica:", choices = c("")),
                              checkboxInput("applyLogModel", "Aplicar Logaritmo", value = FALSE),
                              numericInput("forecastPeriod", "Período de Previsão:", 12, min = 1),
                              numericInput("p", "Ordem AR (p):", 1, min = 0),
@@ -154,8 +154,6 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    uploaded_data[[1]] <- as.Date(uploaded_data[[1]], format = "%d/%m/%Y")
-    
     dataset(uploaded_data)
     
     updateSelectInput(session, "variable", choices = c("", colnames(uploaded_data)[-1]))
@@ -170,6 +168,7 @@ server <- function(input, output, session) {
     
     # Verifique se a variável é numérica
     validate(
+      need(input$variable != "", "Por favor, selecione uma variável numérica"), 
       need(is.numeric(variable_data), "A variável selecionada não é numérica. Por favor, selecione uma variável numérica.")
     )
     
@@ -187,8 +186,8 @@ server <- function(input, output, session) {
   
   output$weatherPlot <- renderPlotly({
     validate(
-      need(input$variable != "", "Por favor, selecione uma variável"),
-      need(nrow(transformed_data()) > 0, "Dados não disponível")
+      need(input$variable != "", "Por favor, selecione uma variável numérica"),
+      need(nrow(transformed_data()) > 0, "Dados não disponíveis")
     )
     
     data <- transformed_data()
@@ -197,7 +196,7 @@ server <- function(input, output, session) {
     if (input$plotType == "Line Plot") {
       p <- ggplot(data, aes_string(x = colnames(data)[1], y = variable)) +
         geom_line(color = "#007bff") +
-        labs(x = "Date", y = variable, title = paste("Plot de", variable)) +
+        labs(x = "Date", y = variable, title = paste("Line Plot de", variable)) +
         theme_minimal()
     } else if (input$plotType == "Histograma") {
       p <- ggplot(data, aes_string(x = variable)) +
@@ -215,6 +214,10 @@ server <- function(input, output, session) {
   })
   
   output$acfPlot <- renderPlotly({
+    validate(
+      need(input$variable != "", "Por favor, selecione uma variável numérica")
+    )
+    
     data <- transformed_data()
     variable <- input$variable
     
@@ -235,6 +238,10 @@ server <- function(input, output, session) {
   })
   
   output$pacfPlot <- renderPlotly({
+    validate(
+      need(input$variable != "", "Por favor, selecione uma variável numérica")
+    )
+    
     data <- transformed_data()
     variable <- input$variable
     
@@ -299,15 +306,15 @@ server <- function(input, output, session) {
   
   fitted_model <- reactiveVal(NULL)
   
-  observeEvent({
-    list(input$tsVariable, input$applyLogModel, input$p, input$d, input$q, input$P, input$D, input$Q, input$S)
-  }, {
-    req(input$tsVariable)
+  fitted_model <- reactive({
+    validate(
+      need(input$tsVariable != "", "Por favor, selecione uma variável para o modelo.")
+    )
+    
     ts_data <- dataset()[[input$tsVariable]]
     
     validate(
-      need(is.numeric(ts_data), "A variável selecionada para o modelo não é numérica. Por favor, selecione uma variável numérica."),
-      need(all(ts_data > 0) | !input$applyLogModel, "A variável contém valores não positivos. O logaritmo não pode ser aplicado.")
+      need(is.numeric(ts_data), "A variável selecionada para o modelo não é numérica. Por favor, selecione uma variável numérica.")
     )
     
     if (input$applyLogModel) {
@@ -316,10 +323,9 @@ server <- function(input, output, session) {
     
     ts_data <- ts(ts_data, frequency = input$S)
     fit <- Arima(ts_data, order = c(input$p, input$d, input$q), seasonal = c(input$P, input$D, input$Q))
-    fitted_model(fit)
+    fit
   })
   
-  # MODELANDO SARIMA
   output$tsPlot <- renderPlotly({
     req(fitted_model())
     forecast_data <- forecast(fitted_model(), h = input$forecastPeriod)
