@@ -54,4 +54,4 @@ Para iniciar o aplicativo, execute o seguinte comando no R:
 ```{r}
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
 ```
-Este aplicativo é uma ferramenta poderosa para analistas de dados que desejam explorar e modelar séries temporais de forma interativa e visual.
+Pode se acessar também pelo seguinte link https://ofzqfb-cau0-pereira0masseu.shinyapps.io/trabalho4_me918/
