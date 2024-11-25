@@ -4,55 +4,68 @@ Este aplicativo RShiny foi desenvolvido para realizar análises de séries tempo
 
 ## Funcionalidades Principais
 
-### Interface do Usuário (UI)
+### 1. **Visualização dos Dados**
+- **Upload de Arquivos**: Permite o upload de arquivos CSV ou Excel contendo séries temporais.
+- **Seleção de Variáveis**: Oferece opções para selecionar variáveis específicas para análise.
+- **Transformações Logarítmicas**: Permite aplicar transformações logarítmicas nas variáveis selecionadas.
+- **Gráficos Interativos**: Exibe gráficos interativos de série temporal, histogramas e box plots utilizando o pacote `plotly`.
+- **Exibição de Tabelas**: Apresenta tabelas de resumo com o uso do `DT`, incluindo estatísticas descritivas das variáveis.
 
-A interface do usuário é composta por três abas principais:
+### 2. **Ajuste de Modelos de Séries Temporais**
+- **Seleção de Variáveis para Modelagem**: Escolha variáveis de interesse para modelagem de séries temporais.
+- **Modelos SARIMA**: Ajuste de modelos SARIMA, com especificação das ordens de AR (AutoRegressivo), MA (Média Móvel) e sazonalidade.
+- **Previsões**: Exibe previsões feitas com o modelo ajustado e a comparação entre valores observados e previstos.
 
-1. **Visualização dos Dados**:
- - Permite o upload de arquivos CSV ou Excel.
- - Oferece opções para selecionar variáveis, aplicar transformações logarítmicas e escolher o tipo de gráfico (Linha, Histograma ou Box Plot).
- - Exibe gráficos interativos usando `plotly` e tabelas de resumo com `DT`.
-
-2. **Ajuste do Modelo**:
- - Permite a seleção de variáveis para modelagem de séries temporais.
- - Oferece opções para ajustar modelos SARIMA, especificando ordens de AR, MA, e sazonalidade.
- - Exibe previsões e comparações entre valores observados e previstos.
-
-3. **Diagnóstico**:
- - Fornece ferramentas para análise de resíduos, incluindo gráficos de resíduos, Q-Q plots, histogramas e ACF de resíduos.
- - Exibe tabelas de resumo dos resíduos.
-
-### Servidor
-
-O servidor do aplicativo gerencia a lógica de backend, incluindo:
-
-- Carregamento e atualização de dados com base em uploads de arquivos.
-- Transformação de dados conforme as seleções do usuário.
-- Ajuste de modelos SARIMA e geração de previsões.
-- Cálculo de estatísticas de previsão, como MSE e MAE.
-- Geração de gráficos interativos e tabelas de dados.
-
-### Estilo e Layout
-
-O aplicativo utiliza CSS personalizado para estilizar a interface, garantindo uma aparência moderna e limpa. As cores predominantes são tons de azul e cinza, com um layout responsivo que se adapta a diferentes tamanhos de tela.
+### 3. **Diagnóstico do Modelo**
+- **Análise de Resíduos**: Ferramentas para análise de resíduos do modelo, incluindo:
+  - Gráficos de resíduos.
+  - Q-Q plots.
+  - Histogramas de resíduos.
+  - ACF (Autocorrelação) dos resíduos.
+- **Estatísticas Descritivas**: Tabelas com estatísticas descritivas dos resíduos, ajudando a avaliar a qualidade do ajuste.
 
 ## Como Usar
 
-1. **Carregar Dados**: Faça o upload de um arquivo CSV ou Excel contendo suas séries temporais.
-2. **Visualizar Dados**: Selecione a variável de interesse e visualize os dados em diferentes formatos de gráfico.
-3. **Ajustar Modelo**: Configure os parâmetros do modelo SARIMA e visualize as previsões.
-4. **Diagnóstico**: Analise os resíduos do modelo para avaliar a qualidade do ajuste.
+1. **Carregar Dados**: Faça o upload de um arquivo CSV ou Excel com suas séries temporais. A primeira coluna do arquivo deve representar as datas ou o índice temporal.
+   
+2. **Visualizar Dados**: Após o upload, selecione a variável de interesse para visualização. O aplicativo permitirá que você visualize os dados em diferentes tipos de gráficos (série temporal, histograma, box plot).
+   
+3. **Ajustar Modelo**: Configure os parâmetros do modelo SARIMA, selecionando as ordens de AR, MA e sazonalidade. O aplicativo irá ajustar o modelo e exibir as previsões, além de permitir comparações entre os valores observados e previstos.
+
+4. **Diagnóstico**: Após ajustar o modelo, utilize as ferramentas de diagnóstico para avaliar a qualidade do modelo, incluindo a análise dos resíduos.
+
+### Banco de Dados Padrão
+O banco de dados padrão do aplicativo contém dados mensais de umidade do ar, nebulosidade, precipitação, temperatura máxima, temperatura mínima e temperatura média, coletados a partir de estações meteorológicas em Porto Alegre entre janeiro de 1990 e dezembro de 2015. A primeira coluna do arquivo contém a data da série temporal.
+
+### Configuração do Arquivo YAML
+O arquivo `config.yaml` permite personalizar configurações do aplicativo, como o número de linhas a serem exibidas na aba de visualização de dados. Alterações nesse arquivo devem ser feitas conforme necessário para adaptar o comportamento do aplicativo.
 
 ## Requisitos
 
-Para executar este aplicativo, você precisará ter o R e as bibliotecas mencionadas instaladas em seu sistema. Além disso, o arquivo `function_aux.R` e o arquivo de configuração `config.yaml` devem estar presentes no diretório de trabalho.
+Para executar este aplicativo, você precisará de:
+
+1. R instalado em seu sistema.
+2. Bibliotecas necessárias:
+   - `shiny`
+   - `ggplot2`
+   - `dplyr`
+   - `forecast`
+   - `readxl`
+   - `DT`
+   - `openxlsx`
+   - `yaml`
+   - `plotly`
+
+3. O arquivo `function_aux.R` e o arquivo de configuração `config.yaml` devem estar presentes no diretório de trabalho.
 
 ## Execução
 
 Para iniciar o aplicativo, execute o seguinte comando no R:
 
+
 ```{r}
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
 ```
-Pode-se acessar o shiny pelo seguinte link https://ofzqfb-cau0-pereira0masseu.shinyapps.io/trabalho4_me918/
+
+Você também pode acessar o aplicativo diretamente através do seguinte link: https://ofzqfb-cau0-pereira0masseu.shinyapps.io/trabalho4_me918/
 

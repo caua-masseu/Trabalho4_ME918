@@ -73,7 +73,7 @@ ui <- fluidPage(
                              fileInput("fileUpload", "Upload um Arquivo", accept = c(".csv", ".xlsx"))
                       ),
                       column(width = 4,
-                             selectInput("plotType", "Selecione o tipo de gráfico:", choices = c("Line Plot", "Histograma", "Box Plot"))
+                             selectInput("plotType", "Selecione o tipo de gráfico:", choices = c("Série Temporal", "Histograma", "Box Plot"))
                       ),
                       column(width = 4,
                              numericInput("numDiff", "Número de Diferenças (d):", value = 0, min = 0)
@@ -195,10 +195,10 @@ server <- function(input, output, session) {
     data <- transformed_data()
     variable <- input$variable
     
-    if (input$plotType == "Line Plot") {
+    if (input$plotType == "Série Temporal") {
       p <- ggplot(data, aes_string(x = colnames(data)[1], y = variable)) +
         geom_line(color = "#009bff") +
-        labs(x = "Date", y = variable, title = paste("Line Plot de", variable)) +
+        labs(x = "Date", y = variable, title = paste("Série Temporal de", variable)) +
         theme_minimal()
     } else if (input$plotType == "Histograma") {
       p <- ggplot(data, aes_string(x = variable)) +
@@ -483,7 +483,6 @@ p <- ggplot(data.frame(Residuals = as.numeric(residuals)), aes(x = Residuals)) +
 ggplotly(p)
 })
   
-  # Diagnostics: Residuals summary table
   output$residualsSummaryTable <- renderDT({
     req(fitted_model())
     residuals <- residuals(fitted_model())
