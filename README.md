@@ -52,7 +52,6 @@ Para executar este aplicativo, você precisará de:
    - `forecast`
    - `readxl`
    - `DT`
-   - `openxlsx`
    - `yaml`
    - `plotly`
 
