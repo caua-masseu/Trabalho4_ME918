@@ -5,6 +5,7 @@ library(plotly)
 library(readxl)
 library(DT)
 library(yaml)
+library(forecast)
 
 source("function_aux.R")
 
@@ -12,48 +13,49 @@ config <- yaml::read_yaml("config.yaml")
 
 ui <- fluidPage(
   tags$head(tags$style(HTML("
-body {
-font-family: 'Arial', sans-serif;
-background-color: #a7dfe9;
-color: #333;
-margin: 0;
-padding: 0;
-border-radius: 20px;
-}
-.title {
-text-align: center;
-padding: 13px;
-color: #2c3e50;
-background-color: #ecf0f1;
-border-bottom: solid #bdc3c7;
-border-radius: 20px;
-margin: 5px 7px 5px 7px;
-}
-.sidebar {
-background-color: #ecf0f1;
-padding: 10px;
-border-radius: 5px;
-box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
-margin: 5px 5px 5px 5px;
-}
-.main-panel {
-background-color: #ffffff;
-padding: 20px;
-border-radius: 5px;
-box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-margin: 5px 5px 5px 5px;
-}
-.plot {
-margin-top: 20px;
-}
-.btn {
-margin-top: 10px;
-}
-.shiny-input-container {
-margin-bottom: 15px;
-}
-.tab-content {
-margin-top: 20px;
+  body {
+  font-family: 'Arial', sans-serif;
+  background-color: #aad1ee;
+  color: #333;
+  margin: 0;
+  padding: 0;
+  border-radius: 20px;
+  }
+  .title {
+  font-family: 'Lucida Console', sans-serif;
+  text-align: center;
+  padding: 13px;
+  color: #2c3e50;
+  background-color: #ecf0f1;
+  border-bottom: solid #bdc3c7;
+  border-radius: 20px;
+  margin: 5px 7px 5px 7px;
+  }
+  .sidebar {
+  background-color: #ecf0f1;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+  margin: 5px 5px 5px 5px;
+  }
+  .main-panel {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin: 5px 5px 5px 5px;
+  }
+  .plot {
+  margin-top: 20px;
+  }
+  .btn {
+  margin-top: 10px;
+  }
+  .shiny-input-container {
+  margin-bottom: 15px;
+  }
+  .tab-content {
+  margin-top: 20px;
 }
 "))),
   
@@ -195,7 +197,7 @@ server <- function(input, output, session) {
     
     if (input$plotType == "Line Plot") {
       p <- ggplot(data, aes_string(x = colnames(data)[1], y = variable)) +
-        geom_line(color = "#007bff") +
+        geom_line(color = "#009bff") +
         labs(x = "Date", y = variable, title = paste("Line Plot de", variable)) +
         theme_minimal()
     } else if (input$plotType == "Histograma") {
@@ -264,16 +266,30 @@ server <- function(input, output, session) {
   output$summaryTable <- renderDT({
     req(input$variable)
     
-    summary_data <- summary(transformed_data()[[input$variable]])
+    # Obter os dados transformados para a variável selecionada
+    data_var <- transformed_data()[[input$variable]]
+    
+    # Calcular as estatísticas manualmente
+    min_value <- min(data_var, na.rm = TRUE)
+    first_quartile <- quantile(data_var, 0.25, na.rm = TRUE)
+    median_value <- median(data_var, na.rm = TRUE)
+    mean_value <- mean(data_var, na.rm = TRUE)
+    variance_value <- var(data_var, na.rm = TRUE)  # Cálculo da variância
+    third_quartile <- quantile(data_var, 0.75, na.rm = TRUE)
+    max_value <- max(data_var, na.rm = TRUE)
+    
+    # Criar o data frame com as estatísticas
     summary_df <- data.frame(
-      Statistic = names(summary_data),
-      Value = as.vector(summary_data)
+      Statistic = c("Mínimo", "1º Quartil", "Mediana", "Média", "Variância", "3º Quartil", "Máximo"),
+      Valor = c(min_value, first_quartile, median_value, mean_value, variance_value, third_quartile, max_value)
     )
     
+    # Transpor o data frame para exibição
     transposed_df <- as.data.frame(t(summary_df))
     colnames(transposed_df) <- transposed_df[1, ]
     transposed_df <- transposed_df[-1, , drop = FALSE]
     
+    # Renderizar a tabela com as opções
     datatable(
       transposed_df,
       extensions = 'Buttons',
@@ -298,13 +314,15 @@ server <- function(input, output, session) {
         autoWidth = TRUE,
         scrollX = TRUE,
         searchHighlight = TRUE,
-        dom = 'frtip'
+        dom = 'frtip',
+        language = list(
+          url = 'https://cdn.datatables.net/plug-ins/1.10.21/i18n/Portuguese-Brasil.json'
+        )
       ),
       extensions = c('Scroller')
     )
   })
   
-
   fitted_model <- reactive({
     validate(
       need(input$tsVariable != "", "Por favor, selecione uma variável para o modelo.")
@@ -438,7 +456,7 @@ qq_df <- data.frame(Theoretical = qq_data$x, Sample = qq_data$y)
 p <- ggplot(qq_df, aes(x = Theoretical, y = Sample)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1, color = "red") +
-  labs(title = "Q-Q Plot dos Resíduos", x = "Quantis Teóricos", y = "Quantis Amostrais") +
+  labs(title = "Q-Q Norm dos Resíduos", x = "Quantis Teóricos", y = "Quantis Amostrais") +
   theme_minimal()
 ggplotly(p)
 })
@@ -473,8 +491,8 @@ ggplotly(p)
     summary_data <- summary(residuals)
     
     summary_df <- data.frame(
-      Statistic = names(summary_data),
-      Value = as.vector(summary_data)
+      Statistic = c("Mínimo", "1º Quartil", "Mediana", "Média", "3º Quartil", "Máximo"),
+      Valor = as.vector(summary_data)
     )
     
     transposed_df <- as.data.frame(t(summary_df))
