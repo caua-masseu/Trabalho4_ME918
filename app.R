@@ -12,49 +12,49 @@ config <- yaml::read_yaml("config.yaml")
 
 ui <- fluidPage(
   tags$head(tags$style(HTML("
-body {
-font-family: 'Arial', sans-serif;
-background-color: #a7dfe9;
-color: #333;
-margin: 0;
-padding: 0;
-border-radius: 20px;
-}
-.title {
-text-align: center;
-padding: 13px;
-color: #2c3e50;
-background-color: #ecf0f1;
-border-bottom: solid #bdc3c7;
-border-radius: 20px;
-margin: 5px 7px 5px 7px;
-}
-.sidebar {
-background-color: #ecf0f1;
-padding: 10px;
-border-radius: 5px;
-box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
-margin: 5px 5px 5px 5px;
-}
-.main-panel {
-background-color: #ffffff;
-padding: 20px;
-border-radius: 5px;
-box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-margin: 5px 5px 5px 5px;
-}
-.plot {
-margin-top: 20px;
-}
-.btn {
-margin-top: 10px;
-}
-.shiny-input-container {
-margin-bottom: 15px;
-}
-.tab-content {
-margin-top: 20px;
-}
+  body {
+  font-family: 'Arial', sans-serif;
+  background-color: #a7dfe9;
+  color: #333;
+  margin: 0;
+  padding: 0;
+  border-radius: 20px;
+  }
+  .title {
+  text-align: center;
+  padding: 13px;
+  color: #2c3e50;
+  background-color: #ecf0f1;
+  border-bottom: solid #bdc3c7;
+  border-radius: 20px;
+  margin: 5px 7px 5px 7px;
+  }
+  .sidebar {
+  background-color: #ecf0f1;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+  margin: 5px 5px 5px 5px;
+  }
+  .main-panel {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin: 5px 5px 5px 5px;
+  }
+  .plot {
+  margin-top: 20px;
+  }
+  .btn {
+  margin-top: 10px;
+  }
+  .shiny-input-container {
+  margin-bottom: 15px;
+  }
+  .tab-content {
+  margin-top: 20px;
+  }
 "))),
   
   tags$div(
@@ -100,13 +100,13 @@ margin-top: 20px;
                              selectInput("tsVariable", "Selecione uma variável:", choices = c("")),
                              checkboxInput("applyLogModel", "Aplicar Logaritmo", value = FALSE),
                              numericInput("forecastPeriod", "Período de Previsão:", 12, min = 1),
-                             numericInput("p", "AR Order (p):", 1, min = 0),
-                             numericInput("d", "Differencing Order (d):", 0, min = 0),
-                             numericInput("q", "MA Order (q):", 1, min = 0),
-                             numericInput("P", "Seasonal AR Order (P):", 1, min = 0),
-                             numericInput("D", "Seasonal Differencing Order (D):", 0, min = 0),
-                             numericInput("Q", "Seasonal MA Order (Q):", 1, min = 0),
-                             numericInput("S", "Seasonal Period (S):", 12, min = 1)
+                             numericInput("p", "Ordem AR (p):", 1, min = 0),
+                             numericInput("d", "Ordem de Diferenciação (d):", 0, min = 0),
+                             numericInput("q", "Ordem MA (q):", 1, min = 0),
+                             numericInput("P", "Ordem AR Sazonal (P):", 1, min = 0),
+                             numericInput("D", "Ordem de Diferenciação Sazonal (D):", 0, min = 0),
+                             numericInput("Q", "Ordem MA Sazonal (Q):", 1, min = 0),
+                             numericInput("S", "Período Sazonal (S):", 12, min = 1)
                       ),
                       column(width = 9,
                              class = "main-panel2",
@@ -132,7 +132,6 @@ margin-top: 20px;
 server <- function(input, output, session) {
   
   dataset <- reactiveVal(NULL)
-  
   # Carrega dataset inicial
   observe({
     initial_data <- load_initial_data("PortoAlegre.xlsx")
@@ -142,7 +141,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "tsVariable", choices = colnames(initial_data)[-1])
   })
   
-  observeEvent(input$fileUpload, {
+  observeEvent(input$fileUpload,{
     inFile <- input$fileUpload
     if (is.null(inFile)) return(NULL)
     
@@ -155,13 +154,10 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    # Verifique o formato da data e ajuste conforme necessário
-    # Supondo que o formato seja "DD/MM/YYYY"
     uploaded_data[[1]] <- as.Date(uploaded_data[[1]], format = "%d/%m/%Y")
     
     dataset(uploaded_data)
     
-    # Limpar seleções antes de adicionar novas opções
     updateSelectInput(session, "variable", choices = c("", colnames(uploaded_data)[-1]))
     updateSelectInput(session, "tsVariable", choices = c("", colnames(uploaded_data)[-1]))
   })
@@ -192,7 +188,7 @@ server <- function(input, output, session) {
   output$weatherPlot <- renderPlotly({
     validate(
       need(input$variable != "", "Por favor, selecione uma variável"),
-      need(nrow(transformed_data()) > 0, "No data available.")
+      need(nrow(transformed_data()) > 0, "Dados não disponível")
     )
     
     data <- transformed_data()
@@ -262,14 +258,12 @@ server <- function(input, output, session) {
     req(input$variable)
     
     summary_data <- summary(transformed_data()[[input$variable]])
-    
     summary_df <- data.frame(
       Statistic = names(summary_data),
       Value = as.vector(summary_data)
     )
     
     transposed_df <- as.data.frame(t(summary_df))
-    
     colnames(transposed_df) <- transposed_df[1, ]
     transposed_df <- transposed_df[-1, , drop = FALSE]
     
@@ -311,9 +305,9 @@ server <- function(input, output, session) {
     req(input$tsVariable)
     ts_data <- dataset()[[input$tsVariable]]
     
-    # Verifique se a variável é numérica
     validate(
-      need(is.numeric(ts_data), "A variável selecionada para o modelo não é numérica. Por favor, selecione uma variável numérica.")
+      need(is.numeric(ts_data), "A variável selecionada para o modelo não é numérica. Por favor, selecione uma variável numérica."),
+      need(all(ts_data > 0) | !input$applyLogModel, "A variável contém valores não positivos. O logaritmo não pode ser aplicado.")
     )
     
     if (input$applyLogModel) {
