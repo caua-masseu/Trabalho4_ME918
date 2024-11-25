@@ -304,8 +304,7 @@ server <- function(input, output, session) {
     )
   })
   
-  fitted_model <- reactiveVal(NULL)
-  
+
   fitted_model <- reactive({
     validate(
       need(input$tsVariable != "", "Por favor, selecione uma variável para o modelo.")
@@ -370,7 +369,7 @@ server <- function(input, output, session) {
       ts_data <- log(ts_data)
     }
     
-    ts_data <- ts(ts_data, frequency = input$S, start = c(1990, 1))
+    ts_data <- ts(ts_data, frequency = input$S)
     fit <- fitted_model()
     
     actuals <- window(ts_data, start = start(ts_data), end = end(ts_data))
@@ -420,51 +419,51 @@ server <- function(input, output, session) {
   })
   
   # Gráficos no Tab Diagnóstico
-  output$residualsPlot <- renderPlotly({
-    req(fitted_model())
-    residuals <- residuals(fitted_model())
-    residuals_df <- data.frame(Time = seq_along(residuals), Residuals = residuals)
-    p <- ggplot(residuals_df, aes(x = Time, y = Residuals)) +
-      geom_line(color = "blue") +
-      labs(title = "Resíduos ao longo do tempo", x = "Tempo", y = "Resíduos") +
-      theme_minimal()
-    ggplotly(p)
-  })
-  
-  output$qqPlot <- renderPlotly({
-    req(fitted_model())
-    residuals <- residuals(fitted_model())
-    qq_data <- qqnorm(residuals, plot.it = FALSE)
-    qq_df <- data.frame(Theoretical = qq_data$x, Sample = qq_data$y)
-    p <- ggplot(qq_df, aes(x = Theoretical, y = Sample)) +
-      geom_point() +
-      geom_abline(intercept = 0, slope = 1, color = "red") +
-      labs(title = "Q-Q Plot dos Resíduos", x = "Quantis Teóricos", y = "Quantis Amostrais") +
-      theme_minimal()
-    ggplotly(p)
-  })
-  
-  output$acf_res <- renderPlotly({
-    req(fitted_model())
-    residuals <- residuals(fitted_model())
-    acf_data <- acf(residuals, plot = FALSE)
-    acf_df <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf)
-    p <- ggplot(acf_df, aes(x = Lag, y = ACF)) +
-      geom_bar(stat = "identity", fill = "blue") +
-      labs(title = "Autocorrelação dos Resíduos", x = "Lag", y = "ACF") +
-      theme_minimal()
-    ggplotly(p)
-  })
-  
-  output$hist_res <- renderPlotly({
-    req(fitted_model())
-    residuals <- residuals(fitted_model())
-    p <- ggplot(data.frame(Residuals = residuals), aes(x = Residuals)) +
-      geom_histogram(fill = "blue", color = "black", bins = 30) +
-      labs(title = "Histograma dos Resíduos", x = "Resíduos", y = "Frequência") +
-      theme_minimal()
-    ggplotly(p)
-  })
+output$residualsPlot <- renderPlotly({
+req(fitted_model())
+residuals <- residuals(fitted_model())
+residuals_df <- data.frame(Time = seq_along(residuals), Residuals = as.numeric(residuals))
+p <- ggplot(residuals_df, aes(x = Time, y = Residuals)) +
+  geom_line(color = "blue") +
+  labs(title = "Resíduos ao longo do tempo", x = "Tempo", y = "Resíduos") +
+  theme_minimal()
+ggplotly(p)
+})
+
+output$qqPlot <- renderPlotly({
+req(fitted_model())
+residuals <- residuals(fitted_model())
+qq_data <- qqnorm(as.numeric(residuals), plot.it = FALSE)
+qq_df <- data.frame(Theoretical = qq_data$x, Sample = qq_data$y)
+p <- ggplot(qq_df, aes(x = Theoretical, y = Sample)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(title = "Q-Q Plot dos Resíduos", x = "Quantis Teóricos", y = "Quantis Amostrais") +
+  theme_minimal()
+ggplotly(p)
+})
+
+output$acf_res <- renderPlotly({
+req(fitted_model())
+residuals <- residuals(fitted_model())
+acf_data <- acf(residuals, plot = FALSE)
+acf_df <- data.frame(Lag = acf_data$lag, ACF = as.numeric(acf_data$acf))
+p <- ggplot(acf_df, aes(x = Lag, y = ACF)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Autocorrelação dos Resíduos", x = "Lag", y = "ACF") +
+  theme_minimal()
+ggplotly(p)
+})
+
+output$hist_res <- renderPlotly({
+req(fitted_model())
+residuals <- residuals(fitted_model())
+p <- ggplot(data.frame(Residuals = as.numeric(residuals)), aes(x = Residuals)) +
+  geom_histogram(fill = "blue", color = "black", bins = 30) +
+  labs(title = "Histograma dos Resíduos", x = "Resíduos", y = "Frequência") +
+  theme_minimal()
+ggplotly(p)
+})
   
   # Diagnostics: Residuals summary table
   output$residualsSummaryTable <- renderDT({

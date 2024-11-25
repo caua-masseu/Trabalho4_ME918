@@ -54,4 +54,5 @@ Para iniciar o aplicativo, execute o seguinte comando no R:
 ```{r}
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
 ```
-Pode se acessar também pelo seguinte link https://ofzqfb-cau0-pereira0masseu.shinyapps.io/trabalho4_me918/
+Pode-se acessar o shiny pelo seguinte link https://ofzqfb-cau0-pereira0masseu.shinyapps.io/trabalho4_me918/
+
